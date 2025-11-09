@@ -47,7 +47,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     
     # OAuth2 (must come before other api/ routes to avoid conflicts)
-    path('api/auth/', include('oauth2_provider.urls', namespace='oauth2_provider')),
+    path('api/auth/', include('oauth2_provider.urls')),
     
     # API Documentation (specific routes first)
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
