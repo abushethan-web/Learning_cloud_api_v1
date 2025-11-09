@@ -175,11 +175,13 @@ else:
         'CONN_MAX_AGE': 600,
     }
 
-# Cache configuration - Using database cache (Redis removed)
+# Cache configuration - Using locmem cache (in-memory, no database table needed)
+# This is simpler and doesn't require a database table
+# For production with multiple workers, consider using database cache after creating cache_table
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
-        'LOCATION': 'cache_table',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'learning-cloud-cache',
     }
 }
 
