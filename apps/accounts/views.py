@@ -61,7 +61,7 @@ class UserRegistrationView(APIView):
 
 
 class StudentRegistrationView(APIView):
-    """Simplified student registration - only requires username, auto-generates student ID and PIN"""
+    """Simplified student registration - only requires username (phone), auto-generates student ID"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -71,10 +71,7 @@ class StudentRegistrationView(APIView):
                 with transaction.atomic():
                     user = serializer.save()
                     
-                    # Get generated PIN from context
-                    generated_pin = serializer.context.get('generated_pin', '')
-                    
-                    # Create access token
+                    # Create access token (never expires)
                     token, created = Token.objects.get_or_create(user=user)
                     
                     # Create session record
@@ -83,18 +80,23 @@ class StudentRegistrationView(APIView):
                     # Log successful registration
                     logger.info(f"Student registered: {user.username} with ID: {user.student_id}")
                     
+                    # Return all user data
+                    user_data = UserProfileSerializer(user).data
+                    school_data = SchoolSerializer(user.school).data if user.school else None
+                    
                     return Response({
                         'message': 'Student registered successfully',
+                        'access_token': token.key,  # Token never expires
                         'student_id': user.student_id,
-                        'pin': generated_pin,  # Return PIN only once during registration
-                        'access_token': token.key,
-                        'user': {
-                            'id': user.id,
-                            'username': user.username,
-                            'full_name': user.get_full_name(),
-                            'student_id': user.student_id,
-                            'role': user.role
-                        }
+                        'user': user_data,
+                        'username': user.username,
+                        'full_name': user.get_full_name(),
+                        'email': user.email,
+                        'role': user.role,
+                        'grade_level': user.grade_level,
+                        'school': school_data,
+                        'is_verified': user.is_verified,
+                        'created_at': user.created_at.isoformat() if user.created_at else None,
                     }, status=status.HTTP_201_CREATED)
             except Exception as e:
                 logger.error(f"Student registration error: {str(e)}")
@@ -128,7 +130,7 @@ class StudentRegistrationView(APIView):
 
 
 class StudentLoginView(APIView):
-    """Student login with Student ID and PIN"""
+    """Student login with username (phone) or student_id - NO PIN required"""
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
@@ -151,10 +153,24 @@ class StudentLoginView(APIView):
             
             logger.info(f"Student login successful: {user.student_id}")
             
+            # Return all user data
+            user_data = UserProfileSerializer(user).data
+            school_data = SchoolSerializer(user.school).data if user.school else None
+            
             return Response({
                 'message': 'Login successful',
-                'user': UserProfileSerializer(user).data,
-                'token': token.key
+                'access_token': token.key,
+                'user': user_data,
+                'student_id': user.student_id,
+                'username': user.username,
+                'full_name': user.get_full_name(),
+                'email': user.email,
+                'role': user.role,
+                'grade_level': user.grade_level,
+                'school': school_data,
+                'is_verified': user.is_verified,
+                'created_at': user.created_at.isoformat() if user.created_at else None,
+                'updated_at': user.updated_at.isoformat() if user.updated_at else None,
             }, status=status.HTTP_200_OK)
         
         # Track failed login attempt

@@ -8,16 +8,18 @@
 ### 1. Student Registration
 **POST** `/api/auth/student-register/`
 
-### 2. Student Login
+### 2. Student Login (NO PIN Required)
 **POST** `/api/auth/student-login/`
+
+Login with username (phone number) or student_id - **NO PIN needed**
 
 ## Description
 
-Simplified student registration endpoint that only requires a username. The system automatically:
+Simplified student registration endpoint that only requires a username (phone number). The system automatically:
 - Generates a unique student ID (format: `STU{YYYYMMDD}{4digits}`)
-- Generates a random 4-digit PIN
 - Sets role to STUDENT
-- Creates an access token for immediate use
+- Creates a permanent access token (never expires) for immediate use
+- **NO PIN required** - login with username or student_id only
 
 ## Request
 

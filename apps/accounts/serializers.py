@@ -67,24 +67,27 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class StudentLoginSerializer(serializers.Serializer):
-    """Serializer for student login with Student ID and PIN"""
-    student_id = serializers.CharField(max_length=20)
-    pin = serializers.CharField(max_length=10)
+    """Serializer for student login with username (phone) or student_id - NO PIN required"""
+    student_id = serializers.CharField(max_length=20, required=False)
+    username = serializers.CharField(max_length=150, required=False)
     
     def validate(self, attrs):
         student_id = attrs.get('student_id')
-        pin = attrs.get('pin')
+        username = attrs.get('username')
         
-        if not student_id or not pin:
-            raise serializers.ValidationError("Student ID and PIN are required")
-        
-        try:
-            user = User.objects.get(student_id=student_id, role='STUDENT', is_active=True)
-        except User.DoesNotExist:
-            raise serializers.ValidationError("Invalid Student ID")
-        
-        if not user.check_pin(pin):
-            raise serializers.ValidationError("Invalid PIN")
+        # Login with username (phone number) or student_id - no PIN needed
+        if username:
+            try:
+                user = User.objects.get(username=username, role='STUDENT', is_active=True)
+            except User.DoesNotExist:
+                raise serializers.ValidationError("Invalid username")
+        elif student_id:
+            try:
+                user = User.objects.get(student_id=student_id, role='STUDENT', is_active=True)
+            except User.DoesNotExist:
+                raise serializers.ValidationError("Invalid Student ID")
+        else:
+            raise serializers.ValidationError("Either username or student_id is required")
         
         attrs['user'] = user
         return attrs
@@ -137,7 +140,7 @@ class ParentLoginSerializer(serializers.Serializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    """Serializer for user profile"""
+    """Serializer for user profile - returns all user data"""
     school = SchoolSerializer(read_only=True)
     school_id = serializers.IntegerField(write_only=True, required=False)
     full_name = serializers.CharField(source='get_full_name', read_only=True)
@@ -149,9 +152,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'role', 'grade_level', 'student_id', 'teacher_id', 'school', 'school_id',
             'subject_specialties', 'is_verified', 'last_login', 'children',
-            'created_at'
+            'created_at', 'updated_at', 'parent_email', 'is_active'
         ]
-        read_only_fields = ['id', 'username', 'created_at', 'last_login']
+        read_only_fields = ['id', 'username', 'created_at', 'last_login', 'updated_at']
     
     def get_children(self, obj):
         if obj.is_parent():
@@ -239,10 +242,10 @@ class LoginAttemptSerializer(serializers.ModelSerializer):
 
 
 class StudentRegistrationSerializer(serializers.Serializer):
-    """Simplified serializer for student registration - only requires username"""
+    """Simplified serializer for student registration - only requires username (phone number)"""
     username = serializers.CharField(
         max_length=150,
-        help_text="Username for the student account"
+        help_text="Username (phone number) for the student account"
     )
     full_name = serializers.CharField(
         max_length=300,
@@ -258,7 +261,7 @@ class StudentRegistrationSerializer(serializers.Serializer):
         return value
     
     def create(self, validated_data):
-        """Create a new student user with auto-generated student ID and PIN"""
+        """Create a new student user with auto-generated student ID - NO PIN needed"""
         username = validated_data['username']
         full_name = validated_data.get('full_name', '').strip()
         
@@ -275,10 +278,7 @@ class StudentRegistrationSerializer(serializers.Serializer):
         # Generate student ID
         student_id = User.generate_student_id()
         
-        # Generate PIN
-        pin = User.generate_pin()
-        
-        # Create user with auto-generated password (students use PIN for login)
+        # Create user with auto-generated password (no PIN needed for login)
         # Generate a random password for Django's user system
         import secrets
         password = secrets.token_urlsafe(32)
@@ -292,13 +292,6 @@ class StudentRegistrationSerializer(serializers.Serializer):
             student_id=student_id,
             is_active=True
         )
-        
-        # Set encrypted PIN
-        user.set_pin(pin)
-        user.save()
-        
-        # Store PIN in the serializer context for response (not saved to user)
-        self.context['generated_pin'] = pin
         
         return user
 

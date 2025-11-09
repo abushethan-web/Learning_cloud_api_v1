@@ -28,29 +28,45 @@ curl -X POST https://learning-cloud-api-v1.onrender.com/api/auth/student-registe
 ```json
 {
   "message": "Student registered successfully",
-  "student_id": "STU202501151234",
-  "pin": "5678",
   "access_token": "abc123xyz...",
+  "student_id": "STU202501151234",
   "user": {
     "id": 1,
     "username": "john_doe",
     "full_name": "John Doe",
     "student_id": "STU202501151234",
     "role": "STUDENT"
-  }
+  },
+  "username": "john_doe",
+  "full_name": "John Doe",
+  "email": null,
+  "role": "STUDENT",
+  "grade_level": null,
+  "school": null,
+  "is_verified": false,
+  "created_at": "2025-01-15T10:30:00Z"
 }
 ```
 
 ---
 
-## 2. Student Login
+## 2. Student Login (NO PIN Required)
 
+### Login with Username (Phone Number)
 ```bash
 curl -X POST https://learning-cloud-api-v1.onrender.com/api/auth/student-login/ \
   -H "Content-Type: application/json" \
   -d '{
-    "student_id": "STU202501151234",
-    "pin": "5678"
+    "username": "0912345678"
+  }'
+```
+
+### Login with Student ID
+```bash
+curl -X POST https://learning-cloud-api-v1.onrender.com/api/auth/student-login/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student_id": "STU202501151234"
   }'
 ```
 
@@ -58,14 +74,30 @@ curl -X POST https://learning-cloud-api-v1.onrender.com/api/auth/student-login/ 
 ```json
 {
   "message": "Login successful",
-  "token": "abc123xyz...",
+  "access_token": "abc123xyz...",
   "user": {
     "id": 1,
-    "username": "john_doe",
+    "username": "0912345678",
     "full_name": "John Doe",
     "student_id": "STU202501151234",
-    "role": "STUDENT"
-  }
+    "role": "STUDENT",
+    "email": null,
+    "grade_level": null,
+    "school": null,
+    "is_verified": false,
+    "created_at": "2025-01-15T10:30:00Z",
+    "updated_at": "2025-01-15T10:30:00Z"
+  },
+  "student_id": "STU202501151234",
+  "username": "0912345678",
+  "full_name": "John Doe",
+  "email": null,
+  "role": "STUDENT",
+  "grade_level": null,
+  "school": null,
+  "is_verified": false,
+  "created_at": "2025-01-15T10:30:00Z",
+  "updated_at": "2025-01-15T10:30:00Z"
 }
 ```
 
@@ -90,15 +122,21 @@ curl -X POST https://learning-cloud-api-v1.onrender.com/api/auth/student-registe
 ```
 
 **Save the response:**
-- `student_id`: Use for login
-- `pin`: Use for login
-- `access_token`: Use for authenticated requests
+- `student_id`: Use for login (optional)
+- `username`: Use for login (phone number)
+- `access_token`: Use for authenticated requests (token never expires)
 
-### Step 2: Login (for future sessions)
+### Step 2: Login (for future sessions) - NO PIN Required
 ```bash
+# Login with username (phone number)
 curl -X POST https://learning-cloud-api-v1.onrender.com/api/auth/student-login/ \
   -H "Content-Type: application/json" \
-  -d '{"student_id": "STU202501151234", "pin": "5678"}'
+  -d '{"username": "0912345678"}'
+
+# OR login with student_id
+curl -X POST https://learning-cloud-api-v1.onrender.com/api/auth/student-login/ \
+  -H "Content-Type: application/json" \
+  -d '{"student_id": "STU202501151234"}'
 ```
 
 ### Step 3: Use Access Token

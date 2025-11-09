@@ -32,7 +32,7 @@ class User(AbstractUser):
     role = models.CharField(max_length=10, choices=USER_ROLES, default='STUDENT')
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
-    email = models.EmailField(blank=True, null=True, unique=True)
+    email = models.EmailField(blank=True, null=True)  # Optional, not unique
     is_verified = models.BooleanField(default=False)
     last_login = models.DateTimeField(blank=True, null=True)
     
