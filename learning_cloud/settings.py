@@ -59,6 +59,7 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
     'rest_framework',
+    'rest_framework.authtoken',  # For Token authentication
     'corsheaders',
     'oauth2_provider',
     'django_filters',
