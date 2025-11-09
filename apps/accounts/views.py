@@ -68,44 +68,55 @@ class StudentRegistrationView(APIView):
         serializer = StudentRegistrationSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             try:
-                with transaction.atomic():
-                    user = serializer.save()
-                    
-                    # Verify user was saved to database
-                    user.refresh_from_db()
-                    logger.info(f"Student registered: username='{user.username}', student_id='{user.student_id}', role='{user.role}', is_active={user.is_active}, id={user.id}")
-                    
-                    # Double-check user exists in database
-                    try:
-                        verify_user = User.objects.get(id=user.id, username=user.username)
-                        logger.info(f"User verified in database: {verify_user.username} (ID: {verify_user.id})")
-                    except User.DoesNotExist:
-                        logger.error(f"CRITICAL: User {user.username} was created but not found in database!")
-                    
-                    # Create access token (never expires)
-                    token, created = Token.objects.get_or_create(user=user)
-                    
-                    # Create session record
-                    self._create_session(request, user)
-                    
-                    # Return all user data
-                    user_data = UserProfileSerializer(user).data
-                    school_data = SchoolSerializer(user.school).data if user.school else None
-                    
-                    return Response({
-                        'message': 'Student registered successfully',
-                        'access_token': token.key,  # Token never expires
-                        'student_id': user.student_id,
-                        'user': user_data,
-                        'username': user.username,
-                        'full_name': user.get_full_name(),
-                        'email': user.email,
-                        'role': user.role,
-                        'grade_level': user.grade_level,
-                        'school': school_data,
-                        'is_verified': user.is_verified,
-                        'created_at': user.created_at.isoformat() if user.created_at else None,
-                    }, status=status.HTTP_201_CREATED)
+                # Create user - Django will auto-commit
+                user = serializer.save()
+                
+                # Verify user was saved to database immediately
+                user.refresh_from_db()
+                logger.info(f"Student registered: username='{user.username}', student_id='{user.student_id}', role='{user.role}', is_active={user.is_active}, id={user.id}")
+                
+                # Verify user exists in database
+                user_exists = User.objects.filter(id=user.id).exists()
+                logger.info(f"User exists check: {user_exists} for user ID {user.id}")
+                
+                # Double-check user exists in database
+                try:
+                    verify_user = User.objects.get(id=user.id, username=user.username)
+                    logger.info(f"User verified in database: {verify_user.username} (ID: {verify_user.id})")
+                except User.DoesNotExist:
+                    logger.error(f"CRITICAL: User {user.username} was created but not found in database!")
+                    raise Exception(f"User {user.username} was created but not found in database!")
+                
+                # Create access token (never expires)
+                token, created = Token.objects.get_or_create(user=user)
+                
+                # Create session record
+                self._create_session(request, user)
+                
+                # Prepare response data
+                user_data = UserProfileSerializer(user).data
+                school_data = SchoolSerializer(user.school).data if user.school else None
+                
+                # Verify user still exists before returning response
+                final_check = User.objects.filter(id=user.id, username=user.username).exists()
+                if not final_check:
+                    logger.error(f"CRITICAL: User {user.username} disappeared before response!")
+                    raise Exception(f"User {user.username} disappeared before response!")
+                
+                return Response({
+                    'message': 'Student registered successfully',
+                    'access_token': token.key,  # Token never expires
+                    'student_id': user.student_id,
+                    'user': user_data,
+                    'username': user.username,
+                    'full_name': user.get_full_name(),
+                    'email': user.email,
+                    'role': user.role,
+                    'grade_level': user.grade_level,
+                    'school': school_data,
+                    'is_verified': user.is_verified,
+                    'created_at': user.created_at.isoformat() if user.created_at else None,
+                }, status=status.HTTP_201_CREATED)
             except Exception as e:
                 logger.error(f"Student registration error: {str(e)}", exc_info=True)
                 return Response({
