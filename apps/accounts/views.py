@@ -71,14 +71,22 @@ class StudentRegistrationView(APIView):
                 with transaction.atomic():
                     user = serializer.save()
                     
+                    # Verify user was saved to database
+                    user.refresh_from_db()
+                    logger.info(f"Student registered: username='{user.username}', student_id='{user.student_id}', role='{user.role}', is_active={user.is_active}, id={user.id}")
+                    
+                    # Double-check user exists in database
+                    try:
+                        verify_user = User.objects.get(id=user.id, username=user.username)
+                        logger.info(f"User verified in database: {verify_user.username} (ID: {verify_user.id})")
+                    except User.DoesNotExist:
+                        logger.error(f"CRITICAL: User {user.username} was created but not found in database!")
+                    
                     # Create access token (never expires)
                     token, created = Token.objects.get_or_create(user=user)
                     
                     # Create session record
                     self._create_session(request, user)
-                    
-                    # Log successful registration
-                    logger.info(f"Student registered: {user.username} with ID: {user.student_id}")
                     
                     # Return all user data
                     user_data = UserProfileSerializer(user).data
@@ -99,7 +107,7 @@ class StudentRegistrationView(APIView):
                         'created_at': user.created_at.isoformat() if user.created_at else None,
                     }, status=status.HTTP_201_CREATED)
             except Exception as e:
-                logger.error(f"Student registration error: {str(e)}")
+                logger.error(f"Student registration error: {str(e)}", exc_info=True)
                 return Response({
                     'error': 'Registration failed',
                     'details': str(e)
@@ -135,6 +143,11 @@ class StudentLoginView(APIView):
     
     def post(self, request):
         serializer = StudentLoginSerializer(data=request.data)
+        
+        # Log the login attempt
+        username_or_id = request.data.get('username') or request.data.get('student_id', 'unknown')
+        logger.info(f"Student login attempt: {username_or_id}")
+        
         if serializer.is_valid():
             user = serializer.validated_data['user']
             
@@ -151,7 +164,7 @@ class StudentLoginView(APIView):
             # Create session record
             self._create_session(request, user)
             
-            logger.info(f"Student login successful: {user.student_id}")
+            logger.info(f"Student login successful: username='{user.username}', student_id='{user.student_id}', id={user.id}")
             
             # Return all user data
             user_data = UserProfileSerializer(user).data
@@ -174,8 +187,13 @@ class StudentLoginView(APIView):
             }, status=status.HTTP_200_OK)
         
         # Track failed login attempt
-        username_or_id = request.data.get('username') or request.data.get('student_id', 'unknown')
         error_message = serializer.errors.get('non_field_errors', ['Invalid credentials'])[0] if serializer.errors.get('non_field_errors') else 'Invalid credentials'
+        logger.warning(f"Student login failed: {username_or_id} - {error_message}")
+        
+        # Debug: Check what users exist in database
+        all_students = User.objects.filter(role='STUDENT').values_list('username', 'student_id', 'id')[:5]
+        logger.info(f"Sample students in DB: {list(all_students)}")
+        
         self._track_login_attempt(request, username_or_id, False, str(error_message))
         
         return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
@@ -409,5 +427,73 @@ def user_stats(request):
         pass
     
     return Response(stats, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def debug_check_user(request):
+    """Debug endpoint to check if a user exists in the database"""
+    username = request.GET.get('username', '').strip()
+    student_id = request.GET.get('student_id', '').strip()
+    
+    if not username and not student_id:
+        return Response({
+            'error': 'Please provide username or student_id'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    results = {}
+    
+    if username:
+        # Check exact match
+        exact_user = User.objects.filter(username=username).first()
+        results['exact_match'] = {
+            'found': exact_user is not None,
+            'username': exact_user.username if exact_user else None,
+            'student_id': exact_user.student_id if exact_user else None,
+            'role': exact_user.role if exact_user else None,
+            'is_active': exact_user.is_active if exact_user else None,
+            'id': exact_user.id if exact_user else None,
+        }
+        
+        # Check case-insensitive match
+        case_insensitive_user = User.objects.filter(username__iexact=username).first()
+        results['case_insensitive_match'] = {
+            'found': case_insensitive_user is not None,
+            'username': case_insensitive_user.username if case_insensitive_user else None,
+            'student_id': case_insensitive_user.student_id if case_insensitive_user else None,
+            'role': case_insensitive_user.role if case_insensitive_user else None,
+            'is_active': case_insensitive_user.is_active if case_insensitive_user else None,
+            'id': case_insensitive_user.id if case_insensitive_user else None,
+        }
+        
+        # Get all students with similar usernames
+        similar_users = User.objects.filter(username__icontains=username[:5] if len(username) >= 5 else username)[:5]
+        results['similar_usernames'] = [
+            {
+                'username': u.username,
+                'student_id': u.student_id,
+                'role': u.role,
+                'is_active': u.is_active,
+                'id': u.id,
+            }
+            for u in similar_users
+        ]
+    
+    if student_id:
+        student_user = User.objects.filter(student_id=student_id).first()
+        results['student_id_match'] = {
+            'found': student_user is not None,
+            'username': student_user.username if student_user else None,
+            'student_id': student_user.student_id if student_user else None,
+            'role': student_user.role if student_user else None,
+            'is_active': student_user.is_active if student_user else None,
+            'id': student_user.id if student_user else None,
+        }
+    
+    # Get all students count
+    results['total_students'] = User.objects.filter(role='STUDENT').count()
+    results['total_users'] = User.objects.count()
+    
+    return Response(results, status=status.HTTP_200_OK)
 
 

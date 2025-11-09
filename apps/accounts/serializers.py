@@ -79,28 +79,39 @@ class StudentLoginSerializer(serializers.Serializer):
         
         # Login with username (phone number) or student_id - no PIN needed
         if username:
+            # Strip whitespace and normalize username
+            username = username.strip()
+            
+            # Try exact match first
             try:
-                # First try to get user by username only
                 user = User.objects.get(username=username)
-                
-                # Then check if it's a student and active
-                if user.role != 'STUDENT':
-                    raise serializers.ValidationError({
-                        'non_field_errors': [f"User is not a student account. Current role: {user.role}"]
-                    })
-                if not user.is_active:
-                    raise serializers.ValidationError({
-                        'non_field_errors': ["Account is deactivated"]
-                    })
             except User.DoesNotExist:
-                # Check if any user with similar username exists (for debugging)
-                similar_users = User.objects.filter(username__icontains=username[:5])[:5]
-                if similar_users.exists():
+                # Try case-insensitive match
+                try:
+                    user = User.objects.get(username__iexact=username)
+                except User.DoesNotExist:
+                    # Check if any user with similar username exists (for debugging)
+                    all_students = User.objects.filter(role='STUDENT').values_list('username', flat=True)[:10]
+                    similar_users = User.objects.filter(username__icontains=username[:5] if len(username) >= 5 else username)[:5]
+                    
+                    error_msg = f"Username '{username}' not found. Please register first."
+                    if similar_users.exists():
+                        error_msg += f" (Found {similar_users.count()} similar usernames)"
+                    if all_students:
+                        error_msg += f" (Sample usernames in DB: {list(all_students)[:3]})"
+                    
                     raise serializers.ValidationError({
-                        'non_field_errors': [f"Username '{username}' not found. Please register first. (Found {similar_users.count()} similar usernames)"]
+                        'non_field_errors': [error_msg]
                     })
+            
+            # Then check if it's a student and active
+            if user.role != 'STUDENT':
                 raise serializers.ValidationError({
-                    'non_field_errors': [f"Username '{username}' not found. Please register first."]
+                    'non_field_errors': [f"User is not a student account. Current role: {user.role}"]
+                })
+            if not user.is_active:
+                raise serializers.ValidationError({
+                    'non_field_errors': ["Account is deactivated"]
                 })
         elif student_id:
             try:
@@ -292,13 +303,15 @@ class StudentRegistrationSerializer(serializers.Serializer):
     
     def validate_username(self, value):
         """Check if username already exists"""
+        # Strip whitespace and normalize
+        value = value.strip() if value else value
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError("Username already exists")
         return value
     
     def create(self, validated_data):
         """Create a new student user with auto-generated student ID - NO PIN needed"""
-        username = validated_data['username']
+        username = validated_data['username'].strip()  # Ensure no whitespace
         full_name = validated_data.get('full_name', '').strip()
         
         # Split full name if provided
@@ -328,6 +341,11 @@ class StudentRegistrationSerializer(serializers.Serializer):
             student_id=student_id,
             is_active=True
         )
+        
+        # Log the created user for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Created student user: username='{user.username}', student_id='{user.student_id}', id={user.id}, role='{user.role}'")
         
         return user
 

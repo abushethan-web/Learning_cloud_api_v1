@@ -29,6 +29,9 @@ urlpatterns = [
     
     # Public endpoints
     path('schools/', views.SchoolListView.as_view(), name='schools'),
+    
+    # Debug endpoints
+    path('debug/check-user/', views.debug_check_user, name='debug_check_user'),
 ]
 
 
