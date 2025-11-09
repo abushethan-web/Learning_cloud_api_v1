@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'drf_spectacular',
+    'oauth2_provider',
 
     # Local apps
     'apps.accounts',
