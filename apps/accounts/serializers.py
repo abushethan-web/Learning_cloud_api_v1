@@ -80,14 +80,44 @@ class StudentLoginSerializer(serializers.Serializer):
             try:
                 user = User.objects.get(username=username, role='STUDENT', is_active=True)
             except User.DoesNotExist:
-                raise serializers.ValidationError("Invalid username")
+                # Check if user exists but wrong role or inactive
+                try:
+                    user_check = User.objects.get(username=username)
+                    if user_check.role != 'STUDENT':
+                        raise serializers.ValidationError({
+                            'non_field_errors': ["User is not a student account"]
+                        })
+                    if not user_check.is_active:
+                        raise serializers.ValidationError({
+                            'non_field_errors': ["Account is deactivated"]
+                        })
+                except User.DoesNotExist:
+                    raise serializers.ValidationError({
+                        'non_field_errors': [f"Username '{username}' not found. Please register first."]
+                    })
         elif student_id:
             try:
                 user = User.objects.get(student_id=student_id, role='STUDENT', is_active=True)
             except User.DoesNotExist:
-                raise serializers.ValidationError("Invalid Student ID")
+                # Check if student_id exists but wrong role or inactive
+                try:
+                    user_check = User.objects.get(student_id=student_id)
+                    if user_check.role != 'STUDENT':
+                        raise serializers.ValidationError({
+                            'non_field_errors': ["User is not a student account"]
+                        })
+                    if not user_check.is_active:
+                        raise serializers.ValidationError({
+                            'non_field_errors': ["Account is deactivated"]
+                        })
+                except User.DoesNotExist:
+                    raise serializers.ValidationError({
+                        'non_field_errors': [f"Student ID '{student_id}' not found. Please register first."]
+                    })
         else:
-            raise serializers.ValidationError("Either username or student_id is required")
+            raise serializers.ValidationError({
+                'non_field_errors': ["Either username or student_id is required"]
+            })
         
         attrs['user'] = user
         return attrs

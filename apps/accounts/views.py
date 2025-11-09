@@ -174,8 +174,9 @@ class StudentLoginView(APIView):
             }, status=status.HTTP_200_OK)
         
         # Track failed login attempt
-        student_id = request.data.get('student_id', 'unknown')
-        self._track_login_attempt(request, student_id, False, 'Invalid credentials')
+        username_or_id = request.data.get('username') or request.data.get('student_id', 'unknown')
+        error_message = serializer.errors.get('non_field_errors', ['Invalid credentials'])[0] if serializer.errors.get('non_field_errors') else 'Invalid credentials'
+        self._track_login_attempt(request, username_or_id, False, str(error_message))
         
         return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
     
