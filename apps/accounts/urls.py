@@ -9,6 +9,7 @@ app_name = 'accounts'
 urlpatterns = [
     # Authentication endpoints
     path('auth/register/', views.UserRegistrationView.as_view(), name='register'),
+    path('auth/student-register/', views.StudentRegistrationView.as_view(), name='student_register'),
     path('auth/student-login/', views.StudentLoginView.as_view(), name='student_login'),
     path('auth/teacher-login/', views.TeacherLoginView.as_view(), name='teacher_login'),
     path('auth/parent-login/', views.ParentLoginView.as_view(), name='parent_login'),

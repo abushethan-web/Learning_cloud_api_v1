@@ -238,3 +238,68 @@ class LoginAttemptSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'attempted_at']
 
 
+class StudentRegistrationSerializer(serializers.Serializer):
+    """Simplified serializer for student registration - only requires username"""
+    username = serializers.CharField(
+        max_length=150,
+        help_text="Username for the student account"
+    )
+    full_name = serializers.CharField(
+        max_length=300,
+        required=False,
+        allow_blank=True,
+        help_text="Full name (optional). If provided, will be split into first_name and last_name"
+    )
+    
+    def validate_username(self, value):
+        """Check if username already exists"""
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username already exists")
+        return value
+    
+    def create(self, validated_data):
+        """Create a new student user with auto-generated student ID and PIN"""
+        username = validated_data['username']
+        full_name = validated_data.get('full_name', '').strip()
+        
+        # Split full name if provided
+        if full_name:
+            name_parts = full_name.split(maxsplit=1)
+            first_name = name_parts[0] if len(name_parts) > 0 else username
+            last_name = name_parts[1] if len(name_parts) > 1 else ''
+        else:
+            # Use username as first name if no full name provided
+            first_name = username
+            last_name = ''
+        
+        # Generate student ID
+        student_id = User.generate_student_id()
+        
+        # Generate PIN
+        pin = User.generate_pin()
+        
+        # Create user with auto-generated password (students use PIN for login)
+        # Generate a random password for Django's user system
+        import secrets
+        password = secrets.token_urlsafe(32)
+        
+        user = User.objects.create_user(
+            username=username,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+            role='STUDENT',
+            student_id=student_id,
+            is_active=True
+        )
+        
+        # Set encrypted PIN
+        user.set_pin(pin)
+        user.save()
+        
+        # Store PIN in the serializer context for response (not saved to user)
+        self.context['generated_pin'] = pin
+        
+        return user
+
+

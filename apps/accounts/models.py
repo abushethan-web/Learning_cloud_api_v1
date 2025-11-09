@@ -30,8 +30,8 @@ class User(AbstractUser):
     
     # Basic fields
     role = models.CharField(max_length=10, choices=USER_ROLES, default='STUDENT')
-    first_name = models.CharField(max_length=150)
-    last_name = models.CharField(max_length=150)
+    first_name = models.CharField(max_length=150, blank=True)
+    last_name = models.CharField(max_length=150, blank=True)
     email = models.EmailField(blank=True, null=True, unique=True)
     is_verified = models.BooleanField(default=False)
     last_login = models.DateTimeField(blank=True, null=True)
@@ -108,6 +108,39 @@ class User(AbstractUser):
         if self.is_parent():
             return User.objects.filter(parent=self)
         return User.objects.none()
+    
+    @staticmethod
+    def generate_student_id():
+        """Generate a unique student ID"""
+        import random
+        import string
+        from django.utils import timezone
+        
+        # Format: STU + YYYYMMDD + 4 random digits
+        date_str = timezone.now().strftime('%Y%m%d')
+        random_suffix = ''.join(random.choices(string.digits, k=4))
+        student_id = f"STU{date_str}{random_suffix}"
+        
+        # Ensure uniqueness
+        max_attempts = 100
+        attempts = 0
+        while User.objects.filter(student_id=student_id).exists() and attempts < max_attempts:
+            random_suffix = ''.join(random.choices(string.digits, k=4))
+            student_id = f"STU{date_str}{random_suffix}"
+            attempts += 1
+        
+        if attempts >= max_attempts:
+            # Fallback: use timestamp-based ID
+            import time
+            student_id = f"STU{int(time.time())}{random_suffix}"
+        
+        return student_id
+    
+    @staticmethod
+    def generate_pin():
+        """Generate a random 4-digit PIN"""
+        import random
+        return str(random.randint(1000, 9999))
 
 
 class School(models.Model):

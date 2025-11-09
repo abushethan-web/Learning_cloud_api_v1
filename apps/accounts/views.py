@@ -14,7 +14,7 @@ from django_ratelimit.decorators import ratelimit
 from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope
 from .models import User, School, UserSession, LoginAttempt
 from .serializers import (
-    UserRegistrationSerializer, StudentLoginSerializer, TeacherLoginSerializer,
+    UserRegistrationSerializer, StudentRegistrationSerializer, StudentLoginSerializer, TeacherLoginSerializer,
     ParentLoginSerializer, UserProfileSerializer, ChangePasswordSerializer,
     ChangePinSerializer, SchoolSerializer, UserSessionSerializer
 )
@@ -60,6 +60,74 @@ class UserRegistrationView(APIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class StudentRegistrationView(APIView):
+    """Simplified student registration - only requires username, auto-generates student ID and PIN"""
+    permission_classes = [permissions.AllowAny]
+    
+    @ratelimit(key='ip', rate='20/h', method='POST')
+    def post(self, request):
+        serializer = StudentRegistrationSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            try:
+                with transaction.atomic():
+                    user = serializer.save()
+                    
+                    # Get generated PIN from context
+                    generated_pin = serializer.context.get('generated_pin', '')
+                    
+                    # Create access token
+                    token, created = Token.objects.get_or_create(user=user)
+                    
+                    # Create session record
+                    self._create_session(request, user)
+                    
+                    # Log successful registration
+                    logger.info(f"Student registered: {user.username} with ID: {user.student_id}")
+                    
+                    return Response({
+                        'message': 'Student registered successfully',
+                        'student_id': user.student_id,
+                        'pin': generated_pin,  # Return PIN only once during registration
+                        'access_token': token.key,
+                        'user': {
+                            'id': user.id,
+                            'username': user.username,
+                            'full_name': user.get_full_name(),
+                            'student_id': user.student_id,
+                            'role': user.role
+                        }
+                    }, status=status.HTTP_201_CREATED)
+            except Exception as e:
+                logger.error(f"Student registration error: {str(e)}")
+                return Response({
+                    'error': 'Registration failed',
+                    'details': str(e)
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def _create_session(self, request, user):
+        """Create user session record"""
+        try:
+            UserSession.objects.create(
+                user=user,
+                session_key=request.session.session_key or 'api',
+                ip_address=self._get_client_ip(request),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
+        except Exception as e:
+            logger.error(f"Failed to create session: {str(e)}")
+    
+    def _get_client_ip(self, request):
+        """Get client IP address"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR', '0.0.0.0')
+        return ip
 
 
 class StudentLoginView(APIView):
