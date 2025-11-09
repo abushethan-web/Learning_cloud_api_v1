@@ -4,7 +4,6 @@ Django settings for Learning Cloud project.
 Optimized for deployment on Render.com:
 - Works with free PostgreSQL (Neon, Supabase)
 - Uses WhiteNoise for static files
-- Ready for Redis (optional)
 - Secure defaults for production
 """
 
@@ -22,7 +21,6 @@ env = environ.Env(
     SECRET_KEY=(str, ''),
     DATABASE_URL=(str, ''),
     ALLOWED_HOSTS=(str, '*'),
-    REDIS_URL=(str, 'redis://localhost:6379/0'),
     USE_S3=(bool, False),
     SECURE_SSL_REDIRECT=(bool, False),
 )
@@ -102,21 +100,6 @@ DATABASES = {
         conn_max_age=600,
         ssl_require=True
     )
-}
-
-# ===========================
-# CACHING (Optional Redis)
-# ===========================
-REDIS_URL = env('REDIS_URL', default='redis://localhost:6379/0')
-
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': REDIS_URL,
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
-    }
 }
 
 # ===========================
