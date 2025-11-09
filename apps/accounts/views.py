@@ -10,7 +10,6 @@ from django.contrib.auth import login, logout
 from django.utils import timezone
 from django.db import transaction
 from django.core.cache import cache
-from django_ratelimit.decorators import ratelimit
 from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope
 from .models import User, School, UserSession, LoginAttempt
 from .serializers import (
@@ -34,7 +33,6 @@ class UserRegistrationView(APIView):
     """User registration endpoint"""
     permission_classes = [permissions.AllowAny]
     
-    @ratelimit(key='ip', rate='10/h', method='POST')
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
@@ -66,7 +64,6 @@ class StudentRegistrationView(APIView):
     """Simplified student registration - only requires username, auto-generates student ID and PIN"""
     permission_classes = [permissions.AllowAny]
     
-    @ratelimit(key='ip', rate='20/h', method='POST')
     def post(self, request):
         serializer = StudentRegistrationSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
@@ -134,7 +131,6 @@ class StudentLoginView(APIView):
     """Student login with Student ID and PIN"""
     permission_classes = [permissions.AllowAny]
     
-    @ratelimit(key='ip', rate='5/m', method='POST')
     def post(self, request):
         serializer = StudentLoginSerializer(data=request.data)
         if serializer.is_valid():
@@ -205,7 +201,6 @@ class TeacherLoginView(APIView):
     """Teacher login"""
     permission_classes = [permissions.AllowAny]
     
-    @ratelimit(key='ip', rate='5/m', method='POST')
     def post(self, request):
         serializer = TeacherLoginSerializer(data=request.data)
         if serializer.is_valid():
@@ -233,7 +228,6 @@ class ParentLoginView(APIView):
     """Parent login"""
     permission_classes = [permissions.AllowAny]
     
-    @ratelimit(key='ip', rate='5/m', method='POST')
     def post(self, request):
         serializer = ParentLoginSerializer(data=request.data)
         if serializer.is_valid():
