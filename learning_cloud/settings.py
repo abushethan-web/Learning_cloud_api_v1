@@ -3,7 +3,7 @@ Django settings for Learning Cloud project.
 
 For production deployment with 20M+ students, this configuration includes:
 - Database optimization for large scale
-- Redis caching for performance
+- Database-backed caching for performance
 - Security hardening
 - CDN integration for media files
 """
@@ -20,7 +20,6 @@ env = environ.Env(
     DEBUG=(bool, False),
     SECRET_KEY=(str, ''),
     DATABASE_URL=(str, ''),
-    REDIS_URL=(str, 'redis://localhost:6379/0'),
     AWS_ACCESS_KEY_ID=(str, ''),
     AWS_SECRET_ACCESS_KEY=(str, ''),
     AWS_STORAGE_BUCKET_NAME=(str, ''),
@@ -176,25 +175,16 @@ else:
         'CONN_MAX_AGE': 600,
     }
 
-# Cache configuration - Redis for high performance
+# Cache configuration - Using database cache (Redis removed)
 CACHES = {
     'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': env('REDIS_URL'),
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'CONNECTION_POOL_KWARGS': {
-                'max_connections': 50,
-                'retry_on_timeout': True,
-            }
-        },
-        'KEY_PREFIX': 'learning_cloud',
-        'TIMEOUT': 300,
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'cache_table',
     }
 }
 
-# Session configuration
-SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+# Session configuration - Using database sessions
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_CACHE_ALIAS = 'default'
 SESSION_COOKIE_AGE = 86400  # 24 hours
 SESSION_COOKIE_SECURE = not DEBUG
@@ -305,6 +295,7 @@ REST_FRAMEWORK = {
         'user': '1000/hour',
         'login': '5/min',
     },
+    'DEFAULT_THROTTLE_CACHE': 'default',
     'DEFAULT_SCHEMA_CLASS': 'apps.schema.CustomAutoSchema',
 }
 
@@ -390,8 +381,9 @@ OAUTH2_PROVIDER = {
     'REFRESH_TOKEN_EXPIRE_SECONDS': 86400,
 }
 
-# Celery Configuration
-CELERY_BROKER_URL = env('REDIS_URL')
+# Celery Configuration - Disabled (Redis removed, tasks run synchronously)
+CELERY_TASK_ALWAYS_EAGER = True  # Run tasks synchronously without Redis
+CELERY_BROKER_URL = None
 CELERY_RESULT_BACKEND = 'django-db'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
@@ -399,7 +391,7 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
-# Rate limiting
+# Rate limiting - using database cache
 RATELIMIT_USE_CACHE = 'default'
 
 # Security settings
