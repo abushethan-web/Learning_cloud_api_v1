@@ -8,6 +8,6 @@ class AccountsConfig(AppConfig):
     label = 'accounts'
 
     def ready(self):
-        import apps.signals
+        ''
 
 
