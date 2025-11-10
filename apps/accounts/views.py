@@ -34,13 +34,7 @@ class GradeLevelListView(generics.ListCreateAPIView):
     """List all grade levels or create a new one"""
     queryset = GradeLevel.objects.all()
     serializer_class = GradeLevelSerializer
-    permission_classes = [permissions.AllowAny]  # Allow GET without token
-    
-    def get_permissions(self):
-        """Allow anyone to list, but require auth for create"""
-        if self.request.method == 'GET':
-            return [permissions.AllowAny()]
-        return [permissions.IsAuthenticated()]
+    permission_classes = [permissions.AllowAny]  # Allow GET and POST without token
 
 
 class GradeLevelDetailView(generics.RetrieveUpdateDestroyAPIView):
