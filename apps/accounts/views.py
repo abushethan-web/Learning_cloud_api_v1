@@ -11,11 +11,11 @@ from django.utils import timezone
 from django.db import transaction
 from django.core.cache import cache
 from oauth2_provider.contrib.rest_framework import TokenHasReadWriteScope
-from .models import User, School, UserSession, LoginAttempt
+from .models import User, School, UserSession, LoginAttempt, GradeLevel
 from .serializers import (
     UserRegistrationSerializer, StudentRegistrationSerializer, StudentLoginSerializer, TeacherLoginSerializer,
     ParentLoginSerializer, UserProfileSerializer, ChangePasswordSerializer,
-    ChangePinSerializer, SchoolSerializer, UserSessionSerializer
+    ChangePinSerializer, SchoolSerializer, UserSessionSerializer, GradeLevelSerializer
 )
 import logging
 
@@ -27,6 +27,33 @@ class SchoolListView(generics.ListAPIView):
     queryset = School.objects.filter(is_active=True)
     serializer_class = SchoolSerializer
     permission_classes = [permissions.AllowAny]
+
+
+# GradeLevel CRUD Views
+class GradeLevelListView(generics.ListCreateAPIView):
+    """List all grade levels or create a new one"""
+    queryset = GradeLevel.objects.all()
+    serializer_class = GradeLevelSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """Allow anyone to list, but require auth for create"""
+        if self.request.method == 'GET':
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+
+class GradeLevelDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update or delete a grade level"""
+    queryset = GradeLevel.objects.all()
+    serializer_class = GradeLevelSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """Allow anyone to retrieve, but require auth for update/delete"""
+        if self.request.method == 'GET':
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
 
 class UserRegistrationView(APIView):
@@ -96,6 +123,7 @@ class StudentRegistrationView(APIView):
                 # Prepare response data
                 user_data = UserProfileSerializer(user).data
                 school_data = SchoolSerializer(user.school).data if user.school else None
+                grade_level_data = GradeLevelSerializer(user.grade_level_model).data if user.grade_level_model else None
                 
                 # Verify user still exists before returning response
                 final_check = User.objects.filter(id=user.id, username=user.username).exists()
@@ -113,6 +141,7 @@ class StudentRegistrationView(APIView):
                     'email': user.email,
                     'role': user.role,
                     'grade_level': user.grade_level,
+                    'grade_level_model': grade_level_data,
                     'school': school_data,
                     'is_verified': user.is_verified,
                     'created_at': user.created_at.isoformat() if user.created_at else None,

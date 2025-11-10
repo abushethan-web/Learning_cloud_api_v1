@@ -12,44 +12,47 @@ datasource db {
 
 // User Management - Optimized for 20M+ students
 model User {
-  id                String   @id @default(cuid())
-  email             String?  @unique
-  username          String   @unique
-  first_name        String
-  last_name         String
-  role              UserRole @default(STUDENT)
-  is_active         Boolean  @default(true)
-  is_verified       Boolean  @default(false)
-  last_login        DateTime?
-  created_at        DateTime @default(now())
-  updated_at        DateTime @updatedAt
+  id          String    @id @default(cuid())
+  email       String?   @unique
+  username    String    @unique
+  first_name  String
+  last_name   String
+  role        UserRole  @default(STUDENT)
+  is_active   Boolean   @default(true)
+  is_verified Boolean   @default(false)
+  last_login  DateTime?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
 
   // Student specific fields
-  student_id        String?  @unique
-  pin               String?  // Encrypted PIN
-  grade_level       Int?     // 1-4
+  student_id        String?      @unique
+  pin               String? // Encrypted PIN
+  grade_level       Int? // 1-4
+  grade_level_id    String?
+  grade_level_model grade_level? @relation(fields: [grade_level_id], references: [id])
   parent_email      String?
   school_id         String?
-  school            School?  @relation("SchoolStudents", fields: [school_id], references: [id])
-  
+  school            School?      @relation("SchoolStudents", fields: [school_id], references: [id])
+
   // Teacher specific fields
-  teacher_id        String?  @unique
+  teacher_id          String?  @unique
   subject_specialties String[] // Array of subjects
-  teacher_school_id String?
-  teacher_school    School?  @relation("SchoolTeachers", fields: [teacher_school_id], references: [id])
-  
+  teacher_school_id   String?
+  teacher_school      School?  @relation("SchoolTeachers", fields: [teacher_school_id], references: [id])
+
   // Relationships
-  student_progress  StudentProgress[]
-  quiz_attempts     QuizAttempt[]
-  notifications     Notification[]
-  parent_children   User[]   @relation("ParentChild")
-  parent            User?    @relation("ParentChild", fields: [parent_id], references: [id])
-  parent_id         String?
-  
+  student_progress StudentProgress[]
+  quiz_attempts    QuizAttempt[]
+  notifications    Notification[]
+  parent_children  User[]            @relation("ParentChild")
+  parent           User?             @relation("ParentChild", fields: [parent_id], references: [id])
+  parent_id        String?
+
   // Indexes for performance
   @@index([student_id])
   @@index([teacher_id])
   @@index([grade_level])
+  @@index([grade_level_id])
   @@index([role])
   @@index([is_active])
   @@map("users")
@@ -64,19 +67,19 @@ enum UserRole {
 
 // School Management
 model School {
-  id          String   @id @default(cuid())
-  name        String
-  address     String?
-  city        String?
-  country     String   @default("Ethiopia")
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id         String   @id @default(cuid())
+  name       String
+  address    String?
+  city       String?
+  country    String   @default("Ethiopia")
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   // Relationships
-  students    User[] @relation("SchoolStudents")
-  teachers    User[] @relation("SchoolTeachers")
-  subjects    Subject[]
+  students User[]    @relation("SchoolStudents")
+  teachers User[]    @relation("SchoolTeachers")
+  subjects Subject[]
 
   @@map("schools")
 }
@@ -86,7 +89,7 @@ model Subject {
   id          String   @id @default(cuid())
   name        String
   description String?
-  grade_level Int      // 1-4
+  grade_level Int // 1-4
   school_id   String?
   is_active   Boolean  @default(true)
   order_index Int      @default(0)
@@ -94,9 +97,9 @@ model Subject {
   updated_at  DateTime @updatedAt
 
   // Relationships
-  school      School?  @relation(fields: [school_id], references: [id])
-  chapters    Chapter[]
-  quizzes     Quiz[]
+  school   School?   @relation(fields: [school_id], references: [id])
+  chapters Chapter[]
+  quizzes  Quiz[]
 
   @@index([grade_level])
   @@index([school_id])
@@ -115,8 +118,8 @@ model Chapter {
   updated_at  DateTime @updatedAt
 
   // Relationships
-  subject     Subject  @relation(fields: [subject_id], references: [id])
-  lessons     Lesson[]
+  subject Subject  @relation(fields: [subject_id], references: [id])
+  lessons Lesson[]
 
   @@index([subject_id])
   @@index([order_index])
@@ -124,24 +127,24 @@ model Chapter {
 }
 
 model Lesson {
-  id          String      @id @default(cuid())
-  title       String
-  content     String      // Rich text content
+  id           String     @id @default(cuid())
+  title        String
+  content      String // Rich text content
   content_type LessonType @default(SLIDES)
-  video_url   String?
-  audio_url   String?
-  duration    Int?        // Duration in minutes
-  chapter_id  String
-  order_index Int         @default(0)
-  is_active   Boolean     @default(true)
-  is_premium  Boolean     @default(false)
-  created_at  DateTime    @default(now())
-  updated_at  DateTime    @updatedAt
+  video_url    String?
+  audio_url    String?
+  duration     Int? // Duration in minutes
+  chapter_id   String
+  order_index  Int        @default(0)
+  is_active    Boolean    @default(true)
+  is_premium   Boolean    @default(false)
+  created_at   DateTime   @default(now())
+  updated_at   DateTime   @updatedAt
 
   // Relationships
-  chapter     Chapter     @relation(fields: [chapter_id], references: [id])
-  progress    StudentProgress[]
-  quiz        Quiz?
+  chapter  Chapter           @relation(fields: [chapter_id], references: [id])
+  progress StudentProgress[]
+  quiz     Quiz?
 
   @@index([chapter_id])
   @@index([order_index])
@@ -159,24 +162,24 @@ enum LessonType {
 
 // Quiz System
 model Quiz {
-  id          String     @id @default(cuid())
-  title       String
-  description String?
-  lesson_id   String?    @unique // Optional - can be standalone
-  subject_id  String
-  grade_level Int
-  time_limit  Int?       // Time limit in minutes
-  max_attempts Int       @default(3)
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  lesson_id     String?  @unique // Optional - can be standalone
+  subject_id    String
+  grade_level   Int
+  time_limit    Int? // Time limit in minutes
+  max_attempts  Int      @default(3)
   passing_score Int      @default(70)
-  is_active   Boolean    @default(true)
-  created_at  DateTime   @default(now())
-  updated_at  DateTime   @updatedAt
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
 
   // Relationships
-  lesson      Lesson?    @relation(fields: [lesson_id], references: [id])
-  subject     Subject    @relation(fields: [subject_id], references: [id])
-  questions   Question[]
-  attempts    QuizAttempt[]
+  lesson    Lesson?       @relation(fields: [lesson_id], references: [id])
+  subject   Subject       @relation(fields: [subject_id], references: [id])
+  questions Question[]
+  attempts  QuizAttempt[]
 
   @@index([subject_id])
   @@index([grade_level])
@@ -185,22 +188,22 @@ model Quiz {
 }
 
 model Question {
-  id          String       @id @default(cuid())
-  quiz_id     String
-  question_text String
-  question_type QuestionType
-  options     Json?        // For multiple choice questions
-  correct_answer Json      // Flexible answer format
-  explanation String?
-  points      Int          @default(1)
-  order_index Int          @default(0)
-  is_active   Boolean      @default(true)
-  created_at  DateTime     @default(now())
-  updated_at  DateTime     @updatedAt
+  id             String       @id @default(cuid())
+  quiz_id        String
+  question_text  String
+  question_type  QuestionType
+  options        Json? // For multiple choice questions
+  correct_answer Json // Flexible answer format
+  explanation    String?
+  points         Int          @default(1)
+  order_index    Int          @default(0)
+  is_active      Boolean      @default(true)
+  created_at     DateTime     @default(now())
+  updated_at     DateTime     @updatedAt
 
   // Relationships
-  quiz        Quiz         @relation(fields: [quiz_id], references: [id])
-  answers     Answer[]
+  quiz    Quiz     @relation(fields: [quiz_id], references: [id])
+  answers Answer[]
 
   @@index([quiz_id])
   @@index([order_index])
@@ -217,20 +220,20 @@ enum QuestionType {
 
 // Progress Tracking - Optimized for large scale
 model StudentProgress {
-  id          String   @id @default(cuid())
-  student_id  String
-  lesson_id   String
-  status      ProgressStatus @default(NOT_STARTED)
-  started_at  DateTime?
+  id           String         @id @default(cuid())
+  student_id   String
+  lesson_id    String
+  status       ProgressStatus @default(NOT_STARTED)
+  started_at   DateTime?
   completed_at DateTime?
-  time_spent  Int      @default(0) // Time spent in seconds
-  score       Float?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  time_spent   Int            @default(0) // Time spent in seconds
+  score        Float?
+  created_at   DateTime       @default(now())
+  updated_at   DateTime       @updatedAt
 
   // Relationships
-  student     User     @relation(fields: [student_id], references: [id])
-  lesson      Lesson   @relation(fields: [lesson_id], references: [id])
+  student User   @relation(fields: [student_id], references: [id])
+  lesson  Lesson @relation(fields: [lesson_id], references: [id])
 
   @@unique([student_id, lesson_id])
   @@index([student_id])
@@ -249,22 +252,22 @@ enum ProgressStatus {
 
 // Quiz Attempts
 model QuizAttempt {
-  id          String   @id @default(cuid())
-  student_id  String
-  quiz_id     String
-  started_at  DateTime @default(now())
-  completed_at DateTime?
-  score       Float?
+  id              String    @id @default(cuid())
+  student_id      String
+  quiz_id         String
+  started_at      DateTime  @default(now())
+  completed_at    DateTime?
+  score           Float?
   total_questions Int
   correct_answers Int
-  time_spent  Int      // Time spent in seconds
-  is_passed   Boolean  @default(false)
-  created_at  DateTime @default(now())
+  time_spent      Int // Time spent in seconds
+  is_passed       Boolean   @default(false)
+  created_at      DateTime  @default(now())
 
   // Relationships
-  student     User     @relation(fields: [student_id], references: [id])
-  quiz        Quiz     @relation(fields: [quiz_id], references: [id])
-  answers     Answer[]
+  student User     @relation(fields: [student_id], references: [id])
+  quiz    Quiz     @relation(fields: [quiz_id], references: [id])
+  answers Answer[]
 
   @@index([student_id])
   @@index([quiz_id])
@@ -274,18 +277,18 @@ model QuizAttempt {
 }
 
 model Answer {
-  id          String   @id @default(cuid())
-  attempt_id  String
-  question_id String
-  answer_text String?
-  is_correct  Boolean
-  points_earned Float  @default(0)
-  time_spent  Int      @default(0)
-  created_at  DateTime @default(now())
+  id            String   @id @default(cuid())
+  attempt_id    String
+  question_id   String
+  answer_text   String?
+  is_correct    Boolean
+  points_earned Float    @default(0)
+  time_spent    Int      @default(0)
+  created_at    DateTime @default(now())
 
   // Relationships
-  attempt     QuizAttempt @relation(fields: [attempt_id], references: [id])
-  question    Question    @relation(fields: [question_id], references: [id])
+  attempt  QuizAttempt @relation(fields: [attempt_id], references: [id])
+  question Question    @relation(fields: [question_id], references: [id])
 
   @@unique([attempt_id, question_id])
   @@index([attempt_id])
@@ -295,15 +298,15 @@ model Answer {
 
 // Analytics and Reporting
 model Analytics {
-  id          String   @id @default(cuid())
-  student_id  String?
-  teacher_id  String?
-  school_id   String?
-  metric_type String   // 'lesson_completion', 'quiz_score', 'time_spent', etc.
+  id           String   @id @default(cuid())
+  student_id   String?
+  teacher_id   String?
+  school_id    String?
+  metric_type  String // 'lesson_completion', 'quiz_score', 'time_spent', etc.
   metric_value Float
-  metadata    Json?    // Additional context data
-  date        DateTime @default(now())
-  created_at  DateTime @default(now())
+  metadata     Json? // Additional context data
+  date         DateTime @default(now())
+  created_at   DateTime @default(now())
 
   @@index([student_id])
   @@index([teacher_id])
@@ -315,18 +318,18 @@ model Analytics {
 
 // Notifications System
 model Notification {
-  id          String   @id @default(cuid())
-  user_id     String
-  title       String
-  message     String
-  type        NotificationType
-  is_read     Boolean  @default(false)
-  data        Json?    // Additional data for the notification
-  created_at  DateTime @default(now())
-  read_at     DateTime?
+  id         String           @id @default(cuid())
+  user_id    String
+  title      String
+  message    String
+  type       NotificationType
+  is_read    Boolean          @default(false)
+  data       Json? // Additional data for the notification
+  created_at DateTime         @default(now())
+  read_at    DateTime?
 
   // Relationships
-  user        User     @relation(fields: [user_id], references: [id])
+  user User @relation(fields: [user_id], references: [id])
 
   @@index([user_id])
   @@index([is_read])
@@ -349,8 +352,8 @@ model Achievement {
   description String
   icon_url    String?
   points      Int      @default(0)
-  category    String   // 'completion', 'streak', 'score', etc.
-  criteria    Json     // Criteria for earning the achievement
+  category    String // 'completion', 'streak', 'score', etc.
+  criteria    Json // Criteria for earning the achievement
   is_active   Boolean  @default(true)
   created_at  DateTime @default(now())
 
@@ -358,10 +361,10 @@ model Achievement {
 }
 
 model UserAchievement {
-  id            String   @id @default(cuid())
-  user_id       String
+  id             String   @id @default(cuid())
+  user_id        String
   achievement_id String
-  earned_at     DateTime @default(now())
+  earned_at      DateTime @default(now())
 
   @@unique([user_id, achievement_id])
   @@index([user_id])
@@ -377,4 +380,23 @@ model SystemConfig {
   updated_at  DateTime @updatedAt
 
   @@map("system_config")
+}
+
+model grade_level {
+  id         String   @id @default(cuid())
+  name       String
+  students   User[]   @relation
+  level      Int
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("grade_levels")
+}
+
+enum GradeLevel {
+  GRADE_0
+  GRADE_1
+  GRADE_2
+  GRADE_3
+  GRADE_4
 }

@@ -45,6 +45,7 @@ class User(AbstractUser):
         null=True,
         validators=[MinValueValidator(1), MaxValueValidator(4)]
     )
+    grade_level_model = models.ForeignKey('GradeLevel', on_delete=models.SET_NULL, null=True, blank=True, related_name='students')
     parent_email = models.EmailField(blank=True, null=True)
     school = models.ForeignKey('School', on_delete=models.SET_NULL, null=True, blank=True)
     
@@ -65,6 +66,7 @@ class User(AbstractUser):
             models.Index(fields=['student_id']),
             models.Index(fields=['teacher_id']),
             models.Index(fields=['grade_level']),
+            models.Index(fields=['grade_level_model']),
             models.Index(fields=['role']),
             models.Index(fields=['is_active']),
         ]
@@ -203,5 +205,26 @@ class LoginAttempt(models.Model):
     def __str__(self):
         status = "Success" if self.success else "Failed"
         return f"{self.username} - {status} - {self.attempted_at}"
+
+
+class GradeLevel(models.Model):
+    """Grade level model for organizing students by grade"""
+    name = models.CharField(max_length=100)
+    level = models.IntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(4)],
+        help_text="Grade level number (0-4)"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'grade_levels'
+        ordering = ['level']
+        indexes = [
+            models.Index(fields=['level']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} (Level {self.level})"
 
 

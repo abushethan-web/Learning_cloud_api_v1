@@ -30,6 +30,10 @@ urlpatterns = [
     # Public endpoints
     path('schools/', views.SchoolListView.as_view(), name='schools'),
     
+    # Grade Level CRUD endpoints
+    path('grade-levels/', views.GradeLevelListView.as_view(), name='grade_level_list'),
+    path('grade-levels/<int:pk>/', views.GradeLevelDetailView.as_view(), name='grade_level_detail'),
+    
     # Debug endpoints
     path('debug/check-user/', views.debug_check_user, name='debug_check_user'),
 ]

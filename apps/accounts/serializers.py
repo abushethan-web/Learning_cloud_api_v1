@@ -5,7 +5,7 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from .models import User, School, UserSession, LoginAttempt
+from .models import User, School, UserSession, LoginAttempt, GradeLevel
 
 
 class SchoolSerializer(serializers.ModelSerializer):
@@ -15,6 +15,20 @@ class SchoolSerializer(serializers.ModelSerializer):
         model = School
         fields = ['id', 'name', 'address', 'city', 'country', 'is_active']
         read_only_fields = ['id']
+
+
+class GradeLevelSerializer(serializers.ModelSerializer):
+    """Serializer for GradeLevel model"""
+    student_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = GradeLevel
+        fields = ['id', 'name', 'level', 'student_count', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_student_count(self, obj):
+        """Get count of students in this grade level"""
+        return obj.students.filter(role='STUDENT', is_active=True).count()
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -190,6 +204,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer for user profile - returns all user data"""
     school = SchoolSerializer(read_only=True)
     school_id = serializers.IntegerField(write_only=True, required=False)
+    grade_level_model = GradeLevelSerializer(read_only=True)
+    grade_level_id = serializers.IntegerField(write_only=True, required=False, source='grade_level_model_id')
     full_name = serializers.CharField(source='get_full_name', read_only=True)
     children = serializers.SerializerMethodField()
     
@@ -197,8 +213,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
-            'role', 'grade_level', 'student_id', 'teacher_id', 'school', 'school_id',
-            'subject_specialties', 'is_verified', 'last_login', 'children',
+            'role', 'grade_level', 'grade_level_model', 'grade_level_id', 'student_id', 'teacher_id', 
+            'school', 'school_id', 'subject_specialties', 'is_verified', 'last_login', 'children',
             'created_at', 'updated_at', 'parent_email', 'is_active'
         ]
         read_only_fields = ['id', 'username', 'created_at', 'last_login', 'updated_at']
@@ -211,11 +227,21 @@ class UserProfileSerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         school_id = validated_data.pop('school_id', None)
+        grade_level_id = validated_data.pop('grade_level_model_id', None)
+        
         if school_id:
             try:
                 school = School.objects.get(id=school_id)
                 instance.school = school
             except School.DoesNotExist:
+                pass
+        
+        if grade_level_id:
+            try:
+                grade_level = GradeLevel.objects.get(id=grade_level_id)
+                instance.grade_level_model = grade_level
+                instance.grade_level = grade_level.level  # Sync the integer field
+            except GradeLevel.DoesNotExist:
                 pass
         
         return super().update(instance, validated_data)
@@ -289,7 +315,7 @@ class LoginAttemptSerializer(serializers.ModelSerializer):
 
 
 class StudentRegistrationSerializer(serializers.Serializer):
-    """Simplified serializer for student registration - requires username (phone number) and grade level"""
+    """Simplified serializer for student registration - requires username (phone number) and grade_level_id"""
     username = serializers.CharField(
         max_length=150,
         help_text="Username (phone number) for the student account"
@@ -300,10 +326,9 @@ class StudentRegistrationSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="Full name (optional). If provided, will be split into first_name and last_name"
     )
-    grade_level = serializers.IntegerField(
-        min_value=1,
-        max_value=4,
-        help_text="Grade level for the student (1-4)"
+    grade_level_id = serializers.IntegerField(
+        required=True,
+        help_text="Grade level ID to relate the student to a grade level"
     )
     
     def validate_username(self, value):
@@ -314,11 +339,23 @@ class StudentRegistrationSerializer(serializers.Serializer):
             raise serializers.ValidationError("Username already exists")
         return value
     
+    def validate_grade_level_id(self, value):
+        """Validate that grade_level_id exists"""
+        if not GradeLevel.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Grade level with this ID does not exist")
+        return value
+    
     def create(self, validated_data):
         """Create a new student user with auto-generated student ID - NO PIN needed"""
         username = validated_data['username'].strip()  # Ensure no whitespace
         full_name = validated_data.get('full_name', '').strip()
-        grade_level = validated_data['grade_level']
+        grade_level_id = validated_data['grade_level_id']
+        
+        # Get the grade level object
+        try:
+            grade_level_obj = GradeLevel.objects.get(id=grade_level_id)
+        except GradeLevel.DoesNotExist:
+            raise serializers.ValidationError({'grade_level_id': 'Grade level not found'})
         
         # Split full name if provided
         if full_name:
@@ -344,7 +381,8 @@ class StudentRegistrationSerializer(serializers.Serializer):
             first_name=first_name,
             last_name=last_name,
             role='STUDENT',
-            grade_level=grade_level,
+            grade_level=grade_level_obj.level,  # Set the integer grade_level field
+            grade_level_model=grade_level_obj,    # Set the foreign key relationship
             student_id=student_id,
             is_active=True
         )
@@ -352,7 +390,7 @@ class StudentRegistrationSerializer(serializers.Serializer):
         # Log the created user for debugging
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"Created student user: username='{user.username}', student_id='{user.student_id}', id={user.id}, role='{user.role}'")
+        logger.info(f"Created student user: username='{user.username}', student_id='{user.student_id}', id={user.id}, role='{user.role}', grade_level_id={grade_level_id}")
         
         return user
 
