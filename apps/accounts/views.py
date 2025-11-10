@@ -34,7 +34,7 @@ class GradeLevelListView(generics.ListCreateAPIView):
     """List all grade levels or create a new one"""
     queryset = GradeLevel.objects.all()
     serializer_class = GradeLevelSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]  # Allow GET without token
     
     def get_permissions(self):
         """Allow anyone to list, but require auth for create"""
@@ -47,7 +47,7 @@ class GradeLevelDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update or delete a grade level"""
     queryset = GradeLevel.objects.all()
     serializer_class = GradeLevelSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]  # Allow GET without token
     
     def get_permissions(self):
         """Allow anyone to retrieve, but require auth for update/delete"""
