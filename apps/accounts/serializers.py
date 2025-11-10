@@ -289,7 +289,7 @@ class LoginAttemptSerializer(serializers.ModelSerializer):
 
 
 class StudentRegistrationSerializer(serializers.Serializer):
-    """Simplified serializer for student registration - only requires username (phone number)"""
+    """Simplified serializer for student registration - requires username (phone number) and grade level"""
     username = serializers.CharField(
         max_length=150,
         help_text="Username (phone number) for the student account"
@@ -299,6 +299,11 @@ class StudentRegistrationSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
         help_text="Full name (optional). If provided, will be split into first_name and last_name"
+    )
+    grade_level = serializers.IntegerField(
+        min_value=1,
+        max_value=4,
+        help_text="Grade level for the student (1-4)"
     )
     
     def validate_username(self, value):
@@ -313,6 +318,7 @@ class StudentRegistrationSerializer(serializers.Serializer):
         """Create a new student user with auto-generated student ID - NO PIN needed"""
         username = validated_data['username'].strip()  # Ensure no whitespace
         full_name = validated_data.get('full_name', '').strip()
+        grade_level = validated_data['grade_level']
         
         # Split full name if provided
         if full_name:
@@ -338,6 +344,7 @@ class StudentRegistrationSerializer(serializers.Serializer):
             first_name=first_name,
             last_name=last_name,
             role='STUDENT',
+            grade_level=grade_level,
             student_id=student_id,
             is_active=True
         )
